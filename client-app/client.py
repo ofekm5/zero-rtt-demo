@@ -42,7 +42,10 @@ def run_single_test(args):
     """Execute single connection test."""
     print(f"=== Single Connection Test ===")
     print(f"Server: {args.host}:{args.port}")
-    print(f"Message: {args.message}")
+    if args.payload_size > 0:
+        print(f"Payload size: {args.payload_size} bytes")
+    else:
+        print(f"Message: {args.message}")
     print()
 
     result = measure_ttfb(args.host, args.port, args.message)
@@ -62,12 +65,18 @@ def run_repeated_tests(args):
     """Execute repeated sequential connections."""
     print(f"=== Repeated Connection Test ({args.count} connections) ===")
     print(f"Server: {args.host}:{args.port}")
+    if args.payload_size > 0:
+        print(f"Payload size: {args.payload_size} bytes")
+    if args.delay > 0:
+        print(f"Delay between connections: {args.delay} ms")
     print()
 
     results = []
     for i in range(args.count):
         result = measure_ttfb(args.host, args.port, args.message)
         results.append(result)
+        if args.delay > 0 and i < args.count - 1:
+            time.sleep(args.delay / 1000.0)
         if args.verbose and result['success']:
             print(f"  Connection {i+1}: {result['ttfb_ms']:.2f} ms")
 
@@ -93,6 +102,8 @@ def run_concurrent_tests(args):
     """Execute concurrent connections."""
     print(f"=== Concurrent Connection Test ({args.concurrency} concurrent) ===")
     print(f"Server: {args.host}:{args.port}")
+    if args.payload_size > 0:
+        print(f"Payload size: {args.payload_size} bytes")
     print()
 
     with ThreadPoolExecutor(max_workers=args.concurrency) as executor:
@@ -128,10 +139,18 @@ def main():
                         help="Concurrent connections for concurrent mode")
     parser.add_argument("--message", default=DEFAULT_MESSAGE,
                         help="Message to send")
+    parser.add_argument("--payload-size", type=int, default=0,
+                        help="Generate payload of N bytes (overrides --message)")
+    parser.add_argument("--delay", type=float, default=0,
+                        help="Delay between connections in ms (repeated mode)")
     parser.add_argument("--verbose", action="store_true",
                         help="Show per-connection details")
 
     args = parser.parse_args()
+
+    # Generate payload if --payload-size specified
+    if args.payload_size > 0:
+        args.message = "X" * args.payload_size
 
     if args.mode == "single":
         run_single_test(args)
