@@ -116,11 +116,11 @@ Scapy provides:
 
 ## Key Documentation
 
-- **`docs/architecture.md`**: Complete system architecture, requirements, protocol flow
+- **`.claude/context/architecture.md`**: Complete system architecture, requirements, protocol flow
 - **`clientnic/docs/clientNIC.md`**: Detailed ClientNIC implementation (0-RTT core logic)
 - **`servernic/docs/serverNIC.md`**: ServerNIC forwarding implementation
-- **`docs/scapy/scapy-guide.md`**: Scapy usage reference
-- **`docs/overview.md`**: Problem statement and solution overview
+- **`.claude/context/scapy/scapy-guide.md`**: Scapy usage reference
+- **`.claude/context/overview.md`**: Problem statement and solution overview
 
 ## Development Workflow
 
