@@ -1,42 +1,37 @@
 # Manual Integration Tests
 
-## Prerequisites
+## Step 1: Connect via SSM and Start Components (in order)
 
-4 EC2 instances with Python 3.8+ and Scapy installed:
+### Server VM (i-06e33c323814811d0) - IP: 10.1.0.137
 ```bash
-pip3 install scapy
+# Connect to Server VM
+aws ssm start-session --target i-06e33c323814811d0
+
+# Run server
+cd /home/ec2-user/zero-rtt-demo/server-app && sudo python3 server.py --host 0.0.0.0 --port 8080 --verbose
 ```
 
-Copy folders to each instance:
-- **Client VM**: `client-app/`
-- **ClientNIC VM**: `clientnic/`
-- **ServerNIC VM**: `servernic/`
-- **Server VM**: `server-app/`
-
-## Step 1: Start Components (in order)
-
-### Server VM
+### ServerNIC VM (not implemented yet - skip)
 ```bash
-cd server-app
-sudo python server.py --host 0.0.0.0 --port 8080
+# cd /home/ec2-user/zero-rtt-demo/servernic && sudo python3 main.py --iface-to-client eth1 --iface-to-server eth2
 ```
 
-### ServerNIC VM
+### ClientNIC VM (i-0c1cc148d595ae510) - IP: 10.1.0.104
 ```bash
-cd servernic
-sudo python main.py --iface-to-client eth1 --iface-to-server eth2
+# Connect to ClientNIC VM
+aws ssm start-session --target i-0c1cc148d595ae510
+
+# Run ClientNIC
+cd /home/ec2-user/zero-rtt-demo && sudo python3 -m clientnic.main
 ```
 
-### ClientNIC VM
+### Client VM (i-0159ce30abff0881b) - IP: 10.1.0.10
 ```bash
-cd clientnic
-sudo python main.py --iface-to-client eth0 --iface-to-server eth1
-```
+# Connect to Client VM
+aws ssm start-session --target i-0159ce30abff0881b
 
-### Client VM
-```bash
-cd client-app
-python client.py --host <SERVER_IP> --port 8080 --message "Hello 0-RTT"
+# Run client (target server IP: 10.1.0.137)
+cd /home/ec2-user/zero-rtt-demo/client-app && python3 client.py --host 10.1.0.137 --port 8080 --message "Hello 0-RTT"
 ```
 
 ## Step 2: Verify Basic Connectivity
