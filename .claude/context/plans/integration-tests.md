@@ -4,7 +4,7 @@
 
 4 EC2 instances with Python 3.8+ and Scapy installed:
 ```bash
-pip install scapy
+pip3 install scapy
 ```
 
 Copy folders to each instance:
