@@ -69,12 +69,13 @@ aws ssm start-session --target $SERVER_ID
 cd /home/ec2-user/zero-rtt-demo/server-app && sudo python3 server.py --host 0.0.0.0 --port 8080 --verbose
 ```
 
-### ServerNIC VM - not implemented yet - skip
+### ServerNIC VM
 ```bash
 # Connect to ServerNIC VM
 aws ssm start-session --target $SERVERNIC_ID
 
-# cd /home/ec2-user/zero-rtt-demo/servernic && sudo python3 main.py --iface-to-client eth1 --iface-to-server eth2
+# Run ServerNIC
+cd /home/ec2-user/zero-rtt-demo && sudo python3 -m servernic.main
 ```
 
 ### ClientNIC VM
