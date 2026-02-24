@@ -1,60 +1,90 @@
-# Scapy Reference
-
-Use this skill when working with Scapy for packet manipulation in this project.
-
+---
+name: scapy
+description: Network packet manipulation with Scapy. Use when constructing, sniffing, modifying, or sending raw network packets. Covers layer-by-layer packet building, BPF filtering, kernel integration, and common pitfalls.
 ---
 
-## High-Level Overview
+# Scapy Packet Manipulation
 
-Scapy is a Python library that wraps `AF_PACKET` sockets and provides:
+## Core Concepts
 
-### 1. Packet Construction
+Scapy wraps `AF_PACKET` raw sockets for direct network access. It handles checksums, lengths, and protocol fields automatically.
 
-Build packets layer by layer with `/` operator:
+## Packet Construction
+
+ALWAYS use the `/` operator to stack layers:
 
 ```python
-from scapy.all import Ether, IP, TCP
+from scapy.all import Ether, IP, TCP, UDP, Raw
 
+# TCP SYN packet
 pkt = Ether()/IP(dst="10.0.0.1")/TCP(dport=80, flags="S")
+
+# UDP with payload
+pkt = Ether()/IP(dst="10.0.0.1")/UDP(dport=53)/Raw(load=b"data")
 ```
 
-Each layer is a class with fields you can set. Scapy auto-calculates checksums, lengths, etc. when you send.
+**Key patterns:**
+- Layer order matters: `Ether/IP/TCP` (not reversed)
+- Scapy auto-calculates: checksums, lengths, IDs
+- To force recalculation after modification: `del pkt[TCP].chksum`
 
-### 2. Sniffing (Receiving)
+## Sending Packets
 
 ```python
-# Blocking loop — calls your function for each packet
-sniff(iface="eth0", prn=my_handler, filter="tcp")
-
-# Or capture to list
-packets = sniff(iface="eth0", count=10)
+sendp(pkt, iface="eth0")      # Layer 2 — YOU control Ethernet header
+send(pkt)                      # Layer 3 — kernel adds Ethernet header
+sr1(pkt)                       # Send and wait for ONE reply
+srp(pkt, iface="eth0")        # Layer 2 send-receive
 ```
 
-The `filter` uses BPF syntax (same as tcpdump) for kernel-level filtering before packets reach Python.
+**MUST specify `iface`** when using `sendp()` or `srp()` — no default interface.
 
-### 3. Sending
+## Sniffing Packets
 
 ```python
-sendp(pkt, iface="eth0")      # Layer 2 (Ethernet frame)
-send(pkt)                      # Layer 3 (IP, kernel handles Ethernet)
+# Callback-based (blocking)
+sniff(iface="eth0", prn=handler, filter="tcp port 80")
+
+# Capture to list
+packets = sniff(iface="eth0", count=10, timeout=5)
+
+# Async sniffing
+t = AsyncSniffer(iface="eth0", prn=handler)
+t.start()
+# ... do work ...
+t.stop()
 ```
 
-### 4. Packet Inspection/Modification
+**The `filter` parameter uses BPF syntax** (same as tcpdump). Filtering happens in kernel — more efficient than Python-side filtering.
+
+## Packet Inspection & Modification
 
 ```python
 def handler(pkt):
+    # Check layer existence BEFORE accessing
     if TCP in pkt:
-        print(pkt[TCP].seq)       # Read fields
-        pkt[TCP].seq = 12345      # Modify fields
-        del pkt[TCP].chksum       # Force recalculation
-        sendp(pkt, iface="eth1")  # Forward modified
+        seq = pkt[TCP].seq
+        pkt[TCP].seq = seq + 1
+        del pkt[TCP].chksum    # MUST delete to force recalc
+        sendp(pkt, iface="eth0")
+
+    # Access raw bytes
+    raw_bytes = bytes(pkt)
+
+    # Pretty print
+    pkt.show()
 ```
 
----
+**Common field access:**
+- `pkt[IP].src`, `pkt[IP].dst` — IP addresses
+- `pkt[TCP].sport`, `pkt[TCP].dport` — ports
+- `pkt[TCP].flags` — "S", "SA", "A", "F", "R", etc.
+- `pkt[TCP].seq`, `pkt[TCP].ack` — sequence numbers
+- `pkt[Raw].load` — payload bytes
 
-## Kernel Integration
+## Kernel Integration (Critical)
 
-When you use scapy (which opens an `AF_PACKET` raw socket), the NETWORK CORE delivers a **copy** of the packet to your raw socket *and* continues normal processing through the protocol handler.
+**AF_PACKET sockets receive COPIES, not the original packet:**
 
 ```
 NETWORK CORE
@@ -64,4 +94,45 @@ NETWORK CORE
     └──→ ip_rcv() → normal stack processing continues
 ```
 
-The packet isn't stolen — it's duplicated. Both paths run in parallel. On "NIC" VMs you need to drop or block the original packet (via iptables) to prevent the kernel from responding with RSTs or interfering with spoofed responses.
+**Implications:**
+- The kernel STILL processes the original packet
+- Kernel may send RST for unknown TCP connections
+- Kernel may respond to pings, ARP requests, etc.
+
+**To prevent kernel interference:**
+```bash
+# Drop outgoing RSTs
+iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP
+
+# Drop specific traffic
+iptables -A OUTPUT -p tcp --dport 80 -j DROP
+```
+
+## Common Pitfalls
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Checksum invalid | Modified packet without clearing | `del pkt[TCP].chksum` |
+| Kernel sends RST | Kernel doesn't know about your connection | Add iptables DROP rule |
+| No packets received | Wrong interface or need root | Check `iface=`, run as root |
+| Filter not working | Invalid BPF syntax | Test with `tcpdump -d "filter"` |
+| sendp() fails | Missing interface | Add `iface="eth0"` |
+
+## Quick Reference
+
+```python
+# Parse pcap
+packets = rdpcap("capture.pcap")
+
+# Write pcap
+wrpcap("out.pcap", packets)
+
+# Forge response to received packet
+def respond(pkt):
+    if TCP in pkt and pkt[TCP].flags == "S":
+        resp = Ether(dst=pkt[Ether].src)/\
+               IP(dst=pkt[IP].src)/\
+               TCP(dport=pkt[TCP].sport, sport=pkt[TCP].dport,
+                   flags="SA", seq=1000, ack=pkt[TCP].seq+1)
+        sendp(resp, iface="eth0")
+```

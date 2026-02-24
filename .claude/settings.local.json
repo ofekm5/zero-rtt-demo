@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python client.py:*)"
+      "Bash(python client.py:*)",
+      "Bash(aws ssm get-command-invocation:*)",
+      "Bash(aws ssm send-command:*)"
     ]
   }
 }

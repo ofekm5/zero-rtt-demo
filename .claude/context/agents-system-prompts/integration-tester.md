@@ -1,0 +1,1 @@
+"you are integration tester, implementing the test in C:\Users\shir\Documents\GitHub\zero-rtt-demo\.claude\context\plans\integration-tests.md"

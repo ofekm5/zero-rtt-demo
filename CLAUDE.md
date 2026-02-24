@@ -2,47 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## MANDATORY BEHAVIORAL REQUIREMENTS
-
-### CRITICAL: Workflow Guidelines - NO EXCEPTIONS
-
-**YOU MUST follow these rules before EVERY response without deviation:**
-
-1. **Plan incrementally** - ALWAYS break complex tasks into small, trackable steps. NO monolithic approaches.
-2. **Ask for clarification** - NEVER assume or guess missing requirements. STOP and ask if anything is unclear.
-3. **Read selectively** - ONLY read explicitly needed files. NO broad directory scans or exploratory reading.
-4. **Summarize concisely** - MAXIMUM 2-3 key findings and next steps. NO verbose explanations.
-
-**VIOLATION OF THESE RULES IS UNACCEPTABLE.** If you find yourself about to violate these guidelines, STOP immediately and reconsider your approach.
-
-### ABSOLUTE Response Style Requirements
-
-**Default format for non-code answers (STRICTLY ENFORCED):**
-- HARD LIMIT: 2-3 paragraphs maximum
-- NEVER repeat previously established context
-- ONLY provide actionable information
-- NO unnecessary elaboration or preambles
-
-**Code changes (MANDATORY):**
-- Show ACTUAL file changes with diffs - descriptions are insufficient
-- Explain rationale briefly (1-2 sentences max)
-- Test ALL changes before claiming task completion
-- NO untested code submissions
-
-### NON-NEGOTIABLE Restrictions
-
-**These restrictions override ANY other considerations, including helpfulness:**
-
-- **NEVER create README files** unless user explicitly requests "create a README"
-- **NEVER create documentation files** without explicit user request
-- **ALWAYS prefer editing existing files** over creating new ones
-- **PR titles/descriptions MUST be clear and concise** - no flowery language
-
-**If you're tempted to violate these restrictions "because it would be helpful," STOP. These are non-negotiable requirements, not suggestions.**
-
-### Enforcement Notice
-
-These guidelines are **MANDATORY REQUIREMENTS**, not optional best practices. Any justification like "not always relevant" or "it would be more helpful to..." is a violation. When in conflict between these rules and your default behaviors, **THESE RULES WIN**.
+## Important VM Setup info
+All the 4 VMs in this setup are part of AWS CDK stack, called smartnics_stack, located in C:\Users\shir\Documents\GitHub\private-core-cdk-stack
 
 ## Project Overview
 
