@@ -1,37 +1,98 @@
 # Manual Integration Tests
 
+## Step 0: Query EC2 Instance IDs and IPs
+
+### Get all instance details
+```bash
+# Query all EC2 instances (assumes only SmartNICs instances exist in account)
+aws ec2 describe-instances \
+  --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],PrivateIpAddress,State.Name]" \
+  --output table
+
+# Get specific instance IDs and IPs by role
+aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=smartnics-client" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].[InstanceId,PrivateIpAddress]" \
+  --output text
+
+aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=smartnics-clientnic" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].[InstanceId,PrivateIpAddress]" \
+  --output text
+
+aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=smartnics-servernic" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].[InstanceId,PrivateIpAddress]" \
+  --output text
+
+aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=smartnics-server" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].[InstanceId,PrivateIpAddress]" \
+  --output text
+```
+
+### Export as environment variables (for scripting)
+```bash
+# Client VM
+export CLIENT_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=smartnics-client" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].InstanceId" --output text)
+export CLIENT_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=smartnics-client" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
+
+# ClientNIC VM
+export CLIENTNIC_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=smartnics-clientnic" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].InstanceId" --output text)
+export CLIENTNIC_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=smartnics-clientnic" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
+
+# ServerNIC VM
+export SERVERNIC_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=smartnics-servernic" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].InstanceId" --output text)
+export SERVERNIC_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=smartnics-servernic" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
+
+# Server VM
+export SERVER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=smartnics-server" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].InstanceId" --output text)
+export SERVER_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=smartnics-server" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
+
+# Verify
+echo "Client: $CLIENT_ID ($CLIENT_IP)"
+echo "ClientNIC: $CLIENTNIC_ID ($CLIENTNIC_IP)"
+echo "ServerNIC: $SERVERNIC_ID ($SERVERNIC_IP)"
+echo "Server: $SERVER_ID ($SERVER_IP)"
+```
+
 ## Step 1: Connect via SSM and Start Components (in order)
 
-### Server VM (i-06e33c323814811d0) - IP: 10.1.0.137
+**Note:** Use the environment variables from Step 0, or substitute actual instance IDs and IPs.
+
+### Server VM
 ```bash
 # Connect to Server VM
-aws ssm start-session --target i-06e33c323814811d0
+aws ssm start-session --target $SERVER_ID
 
 # Run server
 cd /home/ec2-user/zero-rtt-demo/server-app && sudo python3 server.py --host 0.0.0.0 --port 8080 --verbose
 ```
 
-### ServerNIC VM (not implemented yet - skip)
+### ServerNIC VM - not implemented yet - skip
 ```bash
+# Connect to ServerNIC VM
+aws ssm start-session --target $SERVERNIC_ID
+
 # cd /home/ec2-user/zero-rtt-demo/servernic && sudo python3 main.py --iface-to-client eth1 --iface-to-server eth2
 ```
 
-### ClientNIC VM (i-0c1cc148d595ae510) - IP: 10.1.0.104
+### ClientNIC VM
 ```bash
 # Connect to ClientNIC VM
-aws ssm start-session --target i-0c1cc148d595ae510
+aws ssm start-session --target $CLIENTNIC_ID
 
 # Run ClientNIC
 cd /home/ec2-user/zero-rtt-demo && sudo python3 -m clientnic.main
 ```
 
-### Client VM (i-0159ce30abff0881b) - IP: 10.1.0.10
+### Client VM
 ```bash
 # Connect to Client VM
-aws ssm start-session --target i-0159ce30abff0881b
+aws ssm start-session --target $CLIENT_ID
 
-# Run client (target server IP: 10.1.0.137)
-cd /home/ec2-user/zero-rtt-demo/client-app && python3 client.py --host 10.1.0.137 --port 8080 --message "Hello 0-RTT"
+# Run client (use actual server IP from Step 0)
+cd /home/ec2-user/zero-rtt-demo/client-app && python3 client.py --host $SERVER_IP --port 8080 --message "Hello 0-RTT"
 ```
 
 ## Step 2: Verify Basic Connectivity
@@ -109,7 +170,7 @@ Run all at once after components are started:
 ```bash
 # On Client VM - send 5 requests, measure time
 for i in {1..5}; do
-  time python client.py --host <SERVER_IP> --port 8080 --message "test $i"
+  time python3 client.py --host $SERVER_IP --port 8080 --message "test $i"
 done
 ```
 
