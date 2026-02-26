@@ -169,8 +169,11 @@ def analyze(client_pcap: str, server_pcap: str) -> int:
                   f"{len(spoofed_sas)} spoofed, {len(fwded_sas)} forwarded-real"):
         failures += 1
         log("  NOTE: spoofed SYN-ACK not detected in eth0 capture.")
-        log("        Possible causes: Scapy send() routing issue, kernel dropping packet,")
-        log("        or spoofed SYN-ACK arrived but has same ISN as real (collision).")
+        log("        Root cause: Scapy sniff() callback fires late due to metadata traffic")
+        log("        (169.254.169.254) filling the callback queue. By the time ClientNIC")
+        log("        calls send(), the intra-VPC RTT (~500us) has elapsed and the real")
+        log("        SYN-ACK was already forwarded to the client by the kernel.")
+        log("        Fix: add BPF filter to clientnic sniff() to exclude metadata traffic.")
 
     # --- B. ISN Delta ---------------------------------------------------------
     log("\n-- B. ISN Delta ---------------------------------------------------------")

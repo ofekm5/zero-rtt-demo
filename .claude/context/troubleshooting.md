@@ -209,6 +209,55 @@ tshark -r /tmp/capture.pcap -Y "tcp.checksum_bad==1"
 
 ---
 
+## ClientNIC: Spoofed SYN-ACK Arrives Late (2026-02-26)
+
+### Problem
+
+The packet capture analysis reports `[FAIL] Spoofed SYN-ACK(s) found on eth0 (distinct ISN)` even though
+the ClientNIC log shows the callback fires and `send()` is called:
+
+```
+[INFO] clientnic: SYN received, flow created: FlowKey(... dst_port=8080)
+[INFO] clientnic: Spoofed SYN-ACK sent to client
+[INFO] clientnic: Original SYN forwarded to server
+```
+
+### Root Cause
+
+Scapy's `sniff()` uses a single callback thread. `clientnic.main` sniffs with `filter="tcp"`,
+which means it intercepts **all** TCP traffic including heavy metadata traffic to
+`169.254.169.254:80` (AWS instance metadata service). Each metadata SYN generates two
+`send()` calls (spoofed SYN-ACK + forwarded SYN) in the callback thread, backing up the queue.
+
+Intra-VPC RTT is ~500µs. By the time the callback for the test SYN fires, the real SYN-ACK
+has already been forwarded to the client by the kernel's IP forwarding, completing the 3-way
+handshake. The spoofed SYN-ACK arrives late and is either RST'd by the client or arrives after
+the pcap capture window.
+
+**Verified**: `send()` itself works correctly. A direct test on ClientNIC:
+```python
+from scapy.all import IP, TCP, send
+pkt = IP(src='10.1.2.198', dst='10.1.0.135')/TCP(sport=9999, dport=9999, flags='SA', seq=12345)
+send(pkt)  # → visible in tcpdump on eth0 immediately
+```
+
+### Fix Required in Application Code
+
+Change `clientnic/main.py` `sniff()` filter from `"tcp"` to exclude metadata traffic:
+```python
+sniff(
+    iface="eth0",
+    prn=client_handler.handle,
+    filter="tcp and not host 169.254.169.254 and dst port 8080",
+    store=False,
+)
+```
+
+This eliminates the callback queue backlog, allowing the spoofed SYN-ACK to be sent within
+microseconds of the SYN arriving — ahead of the intra-VPC RTT.
+
+---
+
 ## Integration Test Baseline Results (2026-01-28)
 
 After all fixes applied, 5/5 connections successful:
