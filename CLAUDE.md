@@ -83,19 +83,36 @@ Scapy provides:
 - **`.claude/context/scapy/scapy-guide.md`**: Scapy usage reference
 - **`.claude/context/overview.md`**: Problem statement and solution overview
 
+### Integration Test Runbooks
+
+Per-VM runbooks under `.claude/context/plans/` — each is self-contained and pauses at cross-VM dependencies:
+
+- **`serverapp.md`**: Server VM — start server, verify connection and data received
+- **`servernic.md`**: ServerNIC VM — start forwarder, verify bidirectional packet forwarding
+- **`clientnic.md`**: ClientNIC VM — packet captures, 0-RTT analysis, seq delta and checksum verification
+- **`clientapp.md`**: Client VM — run requests, smoke test, success criteria
+
+Startup order: **Server → ServerNIC → ClientNIC → Client**
+
+## Development Status
+
+- [x] ServerNIC stateless forwarder (`servernic/main.py`)
+- [ ] Client TCP application (`client-app/client.py`)
+- [ ] Server TCP application (`server-app/server.py`)
+- [ ] ClientNIC 0-RTT logic (`clientnic/`)
+
 ## Development Workflow
 
-Since this is currently a **documentation-only repository** (no code implementation yet), development will follow:
+Remaining implementation order:
 
 1. Implement basic client/server TCP applications (standard Python sockets)
-2. Implement ServerNIC stateless forwarding (Scapy sniff + sendp)
-3. Implement ClientNIC 0-RTT logic:
+2. Implement ClientNIC 0-RTT logic:
    - Flow table management
    - SYN interception and spoofed SYN-ACK generation
    - Sequence number rewriting
    - Packet buffering during handshake
-4. Set up VM networking (4 VMs with virtual networks)
-5. Test end-to-end connectivity and measure latency reduction
+3. Set up VM networking (4 VMs with virtual networks)
+4. Test end-to-end connectivity using the per-VM runbooks in `.claude/context/plans/`
 
 ## Testing Approach
 
@@ -134,7 +151,7 @@ Since this is currently a **documentation-only repository** (no code implementat
 - Client and server applications remain **completely unmodified** - transparency is key
 - Packet buffering required: client may send data before real SYN-ACK arrives
 
-## Module Structure (Planned)
+## Module Structure
 
 ```
 client-app/
