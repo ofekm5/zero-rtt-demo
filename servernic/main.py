@@ -11,8 +11,8 @@ from .forwarder import PacketForwarder
 
 def main():
     parser = argparse.ArgumentParser(description="ServerNIC - stateless packet forwarder")
-    parser.add_argument("--client-iface", default="eth1", help="Interface facing ClientNIC (default: eth1)")
-    parser.add_argument("--server-iface", default="eth2", help="Interface facing Server (default: eth2)")
+    parser.add_argument("--client-iface", default="eth0", help="Interface facing ClientNIC (default: eth0)")
+    parser.add_argument("--server-iface", default="eth1", help="Interface facing Server (default: eth1)")
     parser.add_argument("--verbose", action="store_true", help="Enable DEBUG logging")
     args = parser.parse_args()
 

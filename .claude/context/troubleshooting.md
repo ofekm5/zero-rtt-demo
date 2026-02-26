@@ -4,6 +4,51 @@ Consolidated lessons from integration testing sessions (Jan–Feb 2026).
 
 ---
 
+## ServerNIC Interface Names (2026-02-24)
+
+### Problem
+
+`servernic.main` defaults to `--client-iface eth1 --server-iface eth2`, but the actual ServerNIC VM only has **eth0** and **eth1**:
+
+```
+eth0: 10.1.1.221/24  ← middle subnet, faces ClientNIC
+eth1: 10.1.2.153/24  ← server subnet, faces Server
+```
+
+This caused a crash on startup:
+```
+ValueError: Interface 'eth2' not found !
+```
+
+### Fix
+
+Always start ServerNIC with explicit interface flags:
+```bash
+cd /home/ec2-user/zero-rtt-demo && sudo python3 -m servernic.main --client-iface eth0 --server-iface eth1
+```
+
+**Fixed**: Updated defaults in `servernic/main.py` to `eth0`/`eth1`. No CLI flags needed for standard deployment.
+
+---
+
+## SSM `git pull` Fails: `$HOME not set`
+
+### Problem
+
+Running `git config --global ...` via SSM fails because SSM executes as root without `$HOME`:
+```
+fatal: $HOME not set
+```
+
+### Fix
+
+Run git operations as the repo owner using `sudo -u ec2-user`:
+```bash
+sudo -u ec2-user git -C /home/ec2-user/zero-rtt-demo pull origin main
+```
+
+---
+
 ## AWS Infrastructure
 
 ### Security Groups
