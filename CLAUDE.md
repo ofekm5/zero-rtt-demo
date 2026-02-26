@@ -77,22 +77,38 @@ Scapy provides:
 
 ## Key Documentation
 
+### Architecture & Design
+- **`.claude/context/overview.md`**: Problem statement and solution overview
 - **`.claude/context/architecture.md`**: Complete system architecture, requirements, protocol flow
 - **`clientnic/docs/clientNIC.md`**: Detailed ClientNIC implementation (0-RTT core logic)
 - **`servernic/docs/serverNIC.md`**: ServerNIC forwarding implementation
-- **`.claude/context/scapy/scapy-guide.md`**: Scapy usage reference
-- **`.claude/context/overview.md`**: Problem statement and solution overview
+
+### Reference
+- **`.claude/skills/scapy/SKILL.md`**: Scapy usage reference (packet construction, sniffing, sending)
+- **`.claude/context/troubleshooting.md`**: Known issues and debugging tips
+
+### Implementation Plans
+- **`.claude/context/plans/servernic-implementation.md`**: ServerNIC implementation plan (completed)
+- **`.claude/context/plans/integration-tests.md`**: Monolithic integration test reference (original)
 
 ### Integration Test Runbooks
 
 Per-VM runbooks under `.claude/context/plans/` — each is self-contained and pauses at cross-VM dependencies:
 
-- **`serverapp.md`**: Server VM — start server, verify connection and data received
-- **`servernic.md`**: ServerNIC VM — start forwarder, verify bidirectional packet forwarding
-- **`clientnic.md`**: ClientNIC VM — packet captures, 0-RTT analysis, seq delta and checksum verification
-- **`clientapp.md`**: Client VM — run requests, smoke test, success criteria
+- **`.claude/context/plans/serverapp.md`**: Server VM — start server, verify connection and data received
+- **`.claude/context/plans/servernic.md`**: ServerNIC VM — start forwarder, verify bidirectional packet forwarding
+- **`.claude/context/plans/clientnic.md`**: ClientNIC VM — packet captures, 0-RTT analysis, seq delta and checksum verification
+- **`.claude/context/plans/clientapp.md`**: Client VM — run requests, smoke test, success criteria
 
 Startup order: **Server → ServerNIC → ClientNIC → Client**
+
+### Agent System Prompts
+Specialist agent prompts under `.claude/context/agents-system-prompts/`:
+- **`apps-developer.md`**: Client/server app developer agent
+- **`clientnic-developer.md`**: ClientNIC 0-RTT logic developer agent
+- **`servernic-developer.md`**: ServerNIC forwarder developer agent
+- **`code-reviewer.md`**: Code review agent
+- **`integration-tester.md`**: Integration testing agent
 
 ## Development Status
 
