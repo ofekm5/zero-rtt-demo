@@ -130,7 +130,7 @@ def analyze(client_pcap: str, server_pcap: str) -> int:
     log(f"  eth1: {len(server_pkts)} packet(s)")
 
     # ── A. 0-RTT Timing ───────────────────────────────────────────────────────
-    log("\n── A. 0-RTT Timing ──────────────────────────────────────────────────────")
+    log("\n-- A. 0-RTT Timing ----------------------------------------------------------")
 
     client_sas = find_syn_acks(client_pkts)   # spoofed SYN-ACK (sent by ClientNIC)
     server_sas = find_syn_acks(server_pkts)   # real SYN-ACK (from server)
@@ -162,7 +162,7 @@ def analyze(client_pcap: str, server_pcap: str) -> int:
             failures += 1
 
     # ── B. Sequence Number Delta ───────────────────────────────────────────────
-    log("\n── B. Sequence Number Delta ─────────────────────────────────────────────")
+    log("\n-- B. Sequence Number Delta -------------------------------------------------")
 
     if spoofed_isn is not None and real_isn is not None:
         isns_differ = spoofed_isn != real_isn
@@ -183,7 +183,7 @@ def analyze(client_pcap: str, server_pcap: str) -> int:
         failures += 1
 
     # ── C. Checksum Validation ─────────────────────────────────────────────────
-    log("\n── C. Checksum Validation ───────────────────────────────────────────────")
+    log("\n-- C. Checksum Validation ---------------------------------------------------")
 
     bad_client = find_bad_checksums(client_pkts)
     bad_server = find_bad_checksums(server_pkts)
@@ -207,7 +207,7 @@ def analyze(client_pcap: str, server_pcap: str) -> int:
         failures += 1
 
     # ── Summary ────────────────────────────────────────────────────────────────
-    log(f"\n{'─' * 60}")
+    log(f"\n{'-' * 60}")
     if failures == 0:
         log("All checks passed.")
     else:
