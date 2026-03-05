@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Important VM Setup info
-All the 4 VMs in this setup are part of AWS CDK stack, called smartnics_stack, located in C:\Users\shir\Documents\GitHub\private-core-cdk-stack
+All the 4 VMs in this setup are part of AWS CDK stack, called smartnics_stack. The CDK code lives in `infra/` in this repo (mirrored from `C:\Users\shir\Documents\GitHub\private-core-cdk-stack`, excluding the gitlab runner stack).
 
 ## Project Overview
 
@@ -186,4 +186,28 @@ servernic/
 
 server-app/
 └── server.py           # Standard TCP server
+
+infra/                  # AWS CDK infrastructure (deploy the 4-VM topology)
+├── app.py              # CDK entry point
+├── cdk.json            # CDK app config
+├── cdk.context.json    # Cached AZ lookups (eu-central-1)
+├── requirements.txt    # CDK Python dependencies
+└── cdk/
+    ├── packet_test_stack.py   # VPC with Client/Middle/Server subnets
+    └── smartnics_stack.py     # EC2 instances, ENIs, route tables
+```
+
+### Deploying Infrastructure
+
+```bash
+cd infra
+pip install -r requirements.txt
+cdk deploy --all
+```
+
+Retrieve the SSH private key after deploy:
+```bash
+aws ssm get-parameter --name <KeyPairParameterName> --with-decryption \
+  --query Parameter.Value --output text > smartnics-key.pem
+chmod 400 smartnics-key.pem
 ```
