@@ -280,14 +280,8 @@ PCAP_SIZES=$(ssm_stdout "$CLIENTNIC_ID" \
     "ls -lh /tmp/client_side.pcap /tmp/server_side.pcap 2>&1 || echo 'pcap files not found'" 30)
 echo "pcap files: $PCAP_SIZES"
 
-# Upload analyze_capture.py to the VM via base64 (avoids dependency on git push)
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ANALYZE_B64=$(python3 -c "import base64; print(base64.b64encode(open('$SCRIPT_DIR/analyze_capture.py','rb').read()).decode())")
-ssm_run "$CLIENTNIC_ID" "echo '$ANALYZE_B64' | base64 -d > /tmp/analyze_capture.py" 30 > /dev/null
-log "  analyze_capture.py uploaded to ClientNIC"
-
 ANALYSIS_RESULT=$(ssm_run "$CLIENTNIC_ID" \
-    "python3 /tmp/analyze_capture.py \
+    "python3 $REPO_PATH/tests/integration/analyze_capture.py \
         --client-pcap /tmp/client_side.pcap \
         --server-pcap /tmp/server_side.pcap" \
     45)

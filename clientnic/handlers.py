@@ -5,7 +5,7 @@ import threading
 from typing import Dict, List
 
 from scapy.packet import Packet
-from scapy.layers.inet import TCP
+from scapy.layers.inet import IP, TCP
 
 from .flow_table import FlowKey, FlowTable
 from .spoofer import SynAckSpoofer
@@ -89,7 +89,86 @@ class ClientPacketHandler:
         logger.info(f"Original SYN forwarded to server")
 
     def _handle_data(self, packet: Packet) -> None:
-        """Handle ACK/DATA packet: buffer until delta is known."""
+        """Handle ACK/DATA packet: forward with seq rewrite if delta known, otherwise buffer."""
         key = FlowTable.extract_key(packet)
-        self._buffer.add(key, packet)
-        logger.debug(f"Packet buffered for flow: {key}")
+        entry = self._flow_table.get_flow(key)
+        if entry is not None and entry.seq_delta is not None:
+            self._rewriter.rewrite_client_to_server(packet, entry.seq_delta, self._server_iface)
+            logger.debug(f"Packet forwarded with seq rewrite for flow: {key}")
+        else:
+            self._buffer.add(key, packet)
+            logger.debug(f"Packet buffered for flow: {key}")
+
+
+class ServerPacketHandler:
+    """Handles packets from server/ServerNIC (eth1)."""
+
+    def __init__(
+        self,
+        flow_table: FlowTable,
+        rewriter: PacketRewriter,
+        buffer: PacketBuffer,
+        client_iface: str = "eth0",
+        server_iface: str = "eth1",
+    ):
+        self._flow_table = flow_table
+        self._rewriter = rewriter
+        self._buffer = buffer
+        self._client_iface = client_iface
+        self._server_iface = server_iface
+
+    def handle(self, packet: Packet) -> None:
+        """Process a packet from the server."""
+        if not packet.haslayer(TCP):
+            return
+
+        tcp = packet[TCP]
+
+        if self._is_syn_ack(tcp):
+            self._handle_syn_ack(packet)
+        else:
+            self._handle_data(packet)
+
+    def _is_syn_ack(self, tcp: TCP) -> bool:
+        return tcp.flags.S and tcp.flags.A
+
+    def _handle_syn_ack(self, packet: Packet) -> None:
+        """Handle real SYN-ACK: compute delta, flush buffered packets, drop the SYN-ACK."""
+        # Reverse src/dst to match the flow key stored when the client's SYN was seen
+        reverse_key = FlowKey(
+            src_ip=packet[IP].dst,
+            src_port=packet[TCP].dport,
+            dst_ip=packet[IP].src,
+            dst_port=packet[TCP].sport,
+        )
+        real_server_isn = packet[TCP].seq
+        delta = self._flow_table.set_delta(reverse_key, real_server_isn)
+        if delta is None:
+            logger.warning(f"Real SYN-ACK for unknown flow: {reverse_key}")
+            return
+
+        logger.info(f"Real SYN-ACK received, delta={delta} for flow: {reverse_key}")
+
+        # Drop the real SYN-ACK — client already received the spoofed one
+        # Flush any client packets buffered while waiting for delta
+        buffered = self._buffer.flush(reverse_key)
+        for pkt in buffered:
+            self._rewriter.rewrite_client_to_server(pkt, delta, self._server_iface)
+        if buffered:
+            logger.info(f"Flushed {len(buffered)} buffered packets for flow: {reverse_key}")
+
+    def _handle_data(self, packet: Packet) -> None:
+        """Handle server→client data: subtract delta from ACK, forward to client."""
+        reverse_key = FlowKey(
+            src_ip=packet[IP].dst,
+            src_port=packet[TCP].dport,
+            dst_ip=packet[IP].src,
+            dst_port=packet[TCP].sport,
+        )
+        entry = self._flow_table.get_flow(reverse_key)
+        if entry is None or entry.seq_delta is None:
+            logger.warning(f"Data from server for unknown/unready flow: {reverse_key}")
+            return
+
+        self._rewriter.rewrite_server_to_client(packet, entry.seq_delta, self._client_iface)
+        logger.debug(f"Server->client packet forwarded with ack rewrite for flow: {reverse_key}")
