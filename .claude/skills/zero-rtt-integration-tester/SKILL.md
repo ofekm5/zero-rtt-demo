@@ -5,6 +5,22 @@ description: End-to-end integration testing for the 0-RTT TCP demo across all 4 
 
 # 0-RTT Integration Tester
 
+## Automated Test Run (preferred)
+
+Run the full suite locally — it discovers VMs, pulls latest code, starts all services, and validates 0-RTT behavior automatically:
+
+```bash
+./tests/integration/run_all.sh
+```
+
+Exit code = number of failures. See `references/test-scripts.md` for the full step-by-step breakdown and expected output of both scripts (`run_all.sh` and `analyze_capture.py`).
+
+---
+
+## Manual / Interactive Testing
+
+Use the steps below for debugging or running individual checks.
+
 ## VM Access
 
 Discover instance IDs and IPs:
