@@ -119,19 +119,17 @@ All four VMs share the same inbound rules pattern:
 
 | Port / Protocol | Source          | Purpose              |
 |-----------------|-----------------|----------------------|
-| TCP 22          | 0.0.0.0/0       | SSH access           |
 | All traffic     | 10.1.0.0/16     | Intra-VPC traffic    |
 
-Outbound: all traffic allowed.
+Outbound: all traffic allowed. Access is via SSM Session Manager — no inbound SSH required.
 
 ---
 
-## IAM & Key Pair
+## IAM
 
 | Resource              | Details                                              |
 |-----------------------|------------------------------------------------------|
 | EC2 Instance Role     | `AmazonSSMManagedInstanceCore` (SSM Session Manager) |
-| Key Pair              | `smartnics-key` — private key stored in SSM Parameter Store |
 
 ---
 
@@ -165,4 +163,3 @@ Internet
 | `ServerNicPublicIp`      | Public IP of ServerNIC VM                |
 | `ServerInstanceId`       | EC2 instance ID of Server VM             |
 | `ServerPublicIp`         | Public IP of Server VM                   |
-| `KeyPairParameterName`   | SSM parameter path for the SSH private key |

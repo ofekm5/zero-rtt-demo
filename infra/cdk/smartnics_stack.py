@@ -22,13 +22,6 @@ class SmartNicsStack(Stack):
         middle_subnets = vpc.select_subnets(subnet_group_name="Middle")
         server_subnets = vpc.select_subnets(subnet_group_name="Server")
 
-        # Create key pair for SSH access
-        key_pair = ec2.KeyPair(
-            self,
-            "SmartNicsKeyPair",
-            key_pair_name="smartnics-key",
-        )
-
         # Base user data to install scapy and clone demo repo
         base_user_data = ec2.UserData.for_linux()
         base_user_data.add_commands(
@@ -73,11 +66,6 @@ class SmartNicsStack(Stack):
             allow_all_outbound=True,
         )
         client_sg.add_ingress_rule(
-            ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(22),
-            "Allow SSH",
-        )
-        client_sg.add_ingress_rule(
             ec2.Peer.ipv4("10.1.0.0/16"),
             ec2.Port.all_traffic(),
             "Allow all traffic from VPC",
@@ -89,11 +77,6 @@ class SmartNicsStack(Stack):
             vpc=vpc,
             description="Security group for ClientNIC VM",
             allow_all_outbound=True,
-        )
-        clientnic_sg.add_ingress_rule(
-            ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(22),
-            "Allow SSH",
         )
         clientnic_sg.add_ingress_rule(
             ec2.Peer.ipv4("10.1.0.0/16"),
@@ -109,11 +92,6 @@ class SmartNicsStack(Stack):
             allow_all_outbound=True,
         )
         servernic_sg.add_ingress_rule(
-            ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(22),
-            "Allow SSH",
-        )
-        servernic_sg.add_ingress_rule(
             ec2.Peer.ipv4("10.1.0.0/16"),
             ec2.Port.all_traffic(),
             "Allow all traffic from VPC",
@@ -125,11 +103,6 @@ class SmartNicsStack(Stack):
             vpc=vpc,
             description="Security group for Server VM",
             allow_all_outbound=True,
-        )
-        server_sg.add_ingress_rule(
-            ec2.Peer.any_ipv4(),
-            ec2.Port.tcp(22),
-            "Allow SSH",
         )
         server_sg.add_ingress_rule(
             ec2.Peer.ipv4("10.1.0.0/16"),
@@ -149,7 +122,6 @@ class SmartNicsStack(Stack):
             vpc_subnets=client_subnet_selection,
             security_group=client_sg,
             role=role,
-            key_pair=key_pair,
             user_data=base_user_data,
             source_dest_check=False,  # Required: ClientNIC sends spoofed SYN-ACKs with server src IP
             block_devices=[
@@ -177,7 +149,6 @@ class SmartNicsStack(Stack):
             vpc_subnets=server_subnet_selection,
             security_group=server_sg,
             role=role,
-            key_pair=key_pair,
             user_data=base_user_data,
             block_devices=[
                 ec2.BlockDevice(
@@ -205,7 +176,6 @@ class SmartNicsStack(Stack):
             vpc_subnets=client_subnet_selection,
             security_group=clientnic_sg,
             role=role,
-            key_pair=key_pair,
             user_data=nic_user_data,
             source_dest_check=False,  # Required for routing
             block_devices=[
@@ -252,7 +222,6 @@ class SmartNicsStack(Stack):
             vpc_subnets=middle_subnet_selection,
             security_group=servernic_sg,
             role=role,
-            key_pair=key_pair,
             user_data=nic_user_data,
             source_dest_check=False,  # Required for routing
             block_devices=[
@@ -439,9 +408,3 @@ class SmartNicsStack(Stack):
             description="Server Instance Public IP",
         )
 
-        CfnOutput(
-            self,
-            "KeyPairParameterName",
-            value=key_pair.private_key.parameter_name,
-            description="SSM Parameter name containing the private key",
-        )
