@@ -39,7 +39,12 @@ def main():
     logger.info("Sniffing on eth1...")
     eth1_thread = threading.Thread(
         target=sniff,
-        kwargs=dict(iface="eth1", prn=server_handler.handle, filter="tcp", store=False),
+        kwargs=dict(
+            iface="eth1",
+            prn=server_handler.handle,
+            filter="tcp and not host 169.254.169.254",
+            store=False,
+        ),
         daemon=True,
     )
     eth1_thread.start()
@@ -49,7 +54,7 @@ def main():
     sniff(
         iface="eth0",
         prn=client_handler.handle,
-        filter="tcp",
+        filter="tcp and not host 169.254.169.254",
         store=False,
     )
 

@@ -273,7 +273,7 @@ PCAP_SIZES=$(ssm_stdout "$CLIENTNIC_ID" \
 echo "pcap files: $PCAP_SIZES"
 
 ANALYSIS_RESULT=$(ssm_run "$CLIENTNIC_ID" \
-    "python3 $REPO_PATH/tests/integration/analyze_capture.py \
+    "python3 $REPO_PATH/integration-test/scripts/analyze_capture.py \
         --client-pcap /tmp/client_side.pcap \
         --server-pcap /tmp/server_side.pcap" \
     45)

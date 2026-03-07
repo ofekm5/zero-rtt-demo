@@ -73,6 +73,13 @@ class ClientPacketHandler:
     def _handle_syn(self, packet: Packet) -> None:
         """Handle SYN packet: create flow, send spoofed SYN-ACK, forward SYN."""
         key = FlowTable.extract_key(packet)
+
+        # Ignore SYN retransmits — flow already exists
+        existing = self._flow_table.get_flow(key)
+        if existing is not None:
+            logger.debug(f"SYN retransmit ignored for existing flow: {key}")
+            return
+
         spoofed_isn = self._spoofer.generate_random_isn()
 
         # Create flow entry
