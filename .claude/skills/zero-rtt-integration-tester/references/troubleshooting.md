@@ -60,6 +60,50 @@ send(packet[IP], iface=iface, verbose=False)
 
 ---
 
+## Scapy send(iface=...) Is Ignored
+
+**Problem** (2026-03-07): `send(packet, iface="eth1")` sends packets out the default route (eth0) instead of eth1. `server_side.pcap` captured zero packets — forwarded SYNs never reached eth1.
+
+**Root cause**: Scapy's `send()` operates at Layer 3. The `iface` parameter is silently ignored:
+```
+SyntaxWarning: 'iface' has no effect on L3 I/O send()
+```
+The kernel routing table determines the outgoing interface, not the `iface` argument.
+
+**Fix** — add OS routes so the kernel picks the correct interface:
+```bash
+# On ClientNIC: route server subnet via eth1
+ip route replace 10.1.2.0/24 via 10.1.1.1 dev eth1
+
+# On ServerNIC: route client subnet via eth0
+ip route replace 10.1.0.0/24 via 10.1.1.1 dev eth0
+```
+
+**Note**: These routes must be added before starting the Scapy processes. The `run_all.sh` script adds them automatically. VM IPs change on restart — the gateway (`10.1.x.1`) is stable but verify with `ip route show`.
+
+---
+
+## Kernel Forwarding Races Scapy
+
+**Problem** (2026-03-07): All 3 spoofed SYN-ACKs arrived 58–373 ms after the real SYN-ACK. Connections succeeded via kernel `ip_forward`, not via 0-RTT. ClientNIC log showed `Data from server for unknown/unready flow` warnings before the SYN was even processed.
+
+**Root cause**: `ip_forward=1` lets the kernel forward TCP packets at line rate (~microseconds). Scapy runs in userspace Python and cannot process the SYN before the kernel completes the full handshake round-trip. In intra-VPC conditions (sub-ms RTT), the kernel always wins.
+
+**Fix** — block kernel forwarding for port 8080 with iptables:
+```bash
+iptables -A FORWARD -p tcp --dport 8080 -j DROP
+iptables -A FORWARD -p tcp --sport 8080 -j DROP
+```
+
+This forces all port-8080 traffic through Scapy's userspace path. The kernel still forwards non-8080 traffic (needed for SSM, metadata, etc.).
+
+Clean up on teardown:
+```bash
+iptables -F FORWARD
+```
+
+---
+
 ## Spoofed SYN-ACK Arrives Late
 
 **Problem** (2026-02-26): Capture analysis reports spoofed SYN-ACK not seen on eth0, even though ClientNIC logs show `send()` was called.
