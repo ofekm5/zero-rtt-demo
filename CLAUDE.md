@@ -78,57 +78,44 @@ Scapy provides:
 ## Key Documentation
 
 ### Architecture & Design
-- **`.claude/context/overview.md`**: Problem statement and solution overview
 - **`.claude/context/architecture.md`**: Complete system architecture, requirements, protocol flow
 - **`clientnic/docs/clientNIC.md`**: Detailed ClientNIC implementation (0-RTT core logic)
 - **`servernic/docs/serverNIC.md`**: ServerNIC forwarding implementation
 
 ### Reference
 - **`.claude/skills/scapy/SKILL.md`**: Scapy usage reference (packet construction, sniffing, sending)
-- **`.claude/context/troubleshooting.md`**: Known issues and debugging tips
+- **`.claude/skills/zero-rtt-integration-tester/SKILL.md`**: Integration tester skill (run tests, diagnose failures)
+- **`.claude/skills/zero-rtt-integration-tester/references/troubleshooting.md`**: Known issues and debugging tips
+- **`.claude/skills/zero-rtt-integration-tester/references/test-scripts.md`**: run_all.sh and analyze_capture.py reference
 
-### Implementation Plans
-- **`.claude/context/plans/servernic-implementation.md`**: ServerNIC implementation plan (completed)
-- **`.claude/context/plans/integration-tests.md`**: Monolithic integration test reference (original)
-
-### Integration Test Runbooks
-
-Per-VM runbooks under `.claude/context/plans/` — each is self-contained and pauses at cross-VM dependencies:
-
-- **`.claude/context/plans/serverapp.md`**: Server VM — start server, verify connection and data received
-- **`.claude/context/plans/servernic.md`**: ServerNIC VM — start forwarder, verify bidirectional packet forwarding
-- **`.claude/context/plans/clientnic.md`**: ClientNIC VM — packet captures, 0-RTT analysis, seq delta and checksum verification
-- **`.claude/context/plans/clientapp.md`**: Client VM — run requests, smoke test, success criteria
+### Integration Testing
+- **`integration-test/scripts/run_all.sh`**: Full automated end-to-end test orchestrator (runs locally, drives all 4 VMs via SSM)
+- **`integration-test/scripts/analyze_capture.py`**: pcap analysis — validates spoofed SYN-ACK, ISN delta, timing, checksums
+- **`integration-test/reports/`**: Test run reports
 
 Startup order: **Server → ServerNIC → ClientNIC → Client**
 
 ### Agent System Prompts
 Specialist agent prompts under `.claude/context/agents-system-prompts/`:
-- **`apps-developer.md`**: Client/server app developer agent
 - **`clientnic-developer.md`**: ClientNIC 0-RTT logic developer agent
 - **`servernic-developer.md`**: ServerNIC forwarder developer agent
-- **`code-reviewer.md`**: Code review agent
 - **`integration-tester.md`**: Integration testing agent
 
 ## Development Status
 
 - [x] ServerNIC stateless forwarder (`servernic/main.py`)
-- [ ] Client TCP application (`client-app/client.py`)
-- [ ] Server TCP application (`server-app/server.py`)
-- [ ] ClientNIC 0-RTT logic (`clientnic/`)
+- [x] Client TCP application (`client-app/client.py`)
+- [x] Server TCP application (`server-app/server.py`)
+- [x] ClientNIC 0-RTT logic (`clientnic/`)
+- [x] Integration test suite (`integration-test/scripts/`)
 
 ## Development Workflow
 
-Remaining implementation order:
+All components are implemented. Current focus is integration testing and bug fixes:
 
-1. Implement basic client/server TCP applications (standard Python sockets)
-2. Implement ClientNIC 0-RTT logic:
-   - Flow table management
-   - SYN interception and spoofed SYN-ACK generation
-   - Sequence number rewriting
-   - Packet buffering during handshake
-3. Set up VM networking (4 VMs with virtual networks)
-4. Test end-to-end connectivity using the per-VM runbooks in `.claude/context/plans/`
+1. Run `./integration-test/scripts/run_all.sh` to execute the full test suite
+2. Investigate failures using the manual steps in `.claude/skills/zero-rtt-integration-tester/SKILL.md`
+3. File findings in `integration-test/reports/`
 
 ## Testing Approach
 
@@ -199,6 +186,12 @@ servernic/
 server-app/
 ├── server.py           # Standard TCP server
 └── test_server.py      # Server unit tests
+
+integration-test/
+├── scripts/
+│   ├── run_all.sh          # Full end-to-end test orchestrator (local → 4 VMs via SSM)
+│   └── analyze_capture.py  # pcap analysis: spoofed SYN-ACK, ISN delta, timing, checksums
+└── reports/                # Test run reports (e.g. integration-test-report-YYYY-MM-DD.md)
 
 infra/                  # AWS CDK infrastructure (deploy the 4-VM topology)
 ├── app.py              # CDK entry point

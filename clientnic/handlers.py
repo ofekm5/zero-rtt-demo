@@ -122,6 +122,14 @@ class ServerPacketHandler:
         if not packet.haslayer(TCP):
             return
 
+        # eth1 sniffs all TCP on the interface, including packets ClientNIC itself
+        # sent out (forwarded SYN, client ACKs, etc.). These outgoing packets have a
+        # forward flow key (client src → server dst) that exists in the flow table.
+        # Skip them — only process incoming server→client packets.
+        forward_key = FlowTable.extract_key(packet)
+        if self._flow_table.get_flow(forward_key) is not None:
+            return
+
         tcp = packet[TCP]
 
         if self._is_syn_ack(tcp):

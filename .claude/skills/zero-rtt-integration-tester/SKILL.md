@@ -5,21 +5,34 @@ description: End-to-end integration testing for the 0-RTT TCP demo across all 4 
 
 # 0-RTT Integration Tester
 
-## Automated Test Run (preferred)
+## How to run integration tests
 
-Run the full suite locally — it discovers VMs, pulls latest code, starts all services, and validates 0-RTT behavior automatically:
+### Step 1 — Run the automated script
 
 ```bash
-./tests/integration/run_all.sh
+./integration-test/scripts/run_all.sh
 ```
 
-Exit code = number of failures. See `references/test-scripts.md` for the full step-by-step breakdown and expected output of both scripts (`run_all.sh` and `analyze_capture.py`).
+Exit code = number of failures. The script handles VM discovery, git pull, service startup, packet capture, client test, log checks, and pcap analysis automatically.
+
+See `references/test-scripts.md` for the full step-by-step breakdown and expected output of both scripts (`run_all.sh` and `analyze_capture.py`).
+
+### Step 2 — Investigate any failures
+
+The script reports pass/fail but cannot diagnose *why* something failed. When any check fails:
+
+1. **Read the logs** — the script prints them inline; look for the first anomaly
+2. **SSM into the relevant VM** and run the manual diagnostic commands below
+3. **Cross-correlate**: clientnic log + pcap + server log together tell the full story
+4. **Report observed vs expected** for each failed check with exact log lines or packet timestamps
+
+Common failure patterns and their fixes are in `references/troubleshooting.md`.
 
 ---
 
 ## Manual / Interactive Testing
 
-Use the steps below for debugging or running individual checks.
+Use the steps below when the script fails partway, or to run individual checks in isolation.
 
 ## VM Access
 
@@ -43,13 +56,13 @@ Always start in this order: **Server -> ServerNIC -> ClientNIC -> Client**
 
 ```bash
 # 1. Server VM
-cd /home/ec2-user/zero-rtt-demo && setsid python3 server-app/server.py --host 0.0.0.0 --port 8080 < /dev/null > /tmp/server.log 2>&1 &
+cd /home/ec2-user/zero-rtt-demo && echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> /tmp/server.log && setsid python3 server-app/server.py --host 0.0.0.0 --port 8080 < /dev/null >> /tmp/server.log 2>&1 &
 
 # 2. ServerNIC VM
-cd /home/ec2-user/zero-rtt-demo && setsid sudo python3 -m servernic.main < /dev/null > /tmp/servernic.log 2>&1 &
+cd /home/ec2-user/zero-rtt-demo && echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> /tmp/servernic.log && setsid python3 -m servernic.main < /dev/null >> /tmp/servernic.log 2>&1 &
 
 # 3. ClientNIC VM
-cd /home/ec2-user/zero-rtt-demo && setsid sudo python3 -m clientnic.main < /dev/null > /tmp/clientnic.log 2>&1 &
+cd /home/ec2-user/zero-rtt-demo && echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> /tmp/clientnic.log && setsid python3 -m clientnic.main < /dev/null >> /tmp/clientnic.log 2>&1 &
 
 # 4. Client VM
 cd /home/ec2-user/zero-rtt-demo && python3 client-app/client.py
@@ -70,8 +83,8 @@ cat /proc/sys/net/ipv4/ip_forward
 # Check interface names (may not be eth0/eth1 on all AMIs)
 ip link show
 
-# Enable IP forwarding if needed
-echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
+# Enable IP forwarding if needed (CDK sets this persistently; only needed if CDK wasn't run)
+echo 1 > /proc/sys/net/ipv4/ip_forward
 ```
 
 ## Verification Checklist
@@ -84,10 +97,10 @@ echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
 Spoofed SYN-ACK must arrive at client **before** the real SYN-ACK:
 ```bash
 # Capture on ClientNIC eth0 (client-facing)
-sudo tcpdump -i eth0 -nn -tttt 'tcp port 8080' -w /tmp/client_side.pcap
+tcpdump -i eth0 -nn -tttt 'tcp port 8080' -w /tmp/client_side.pcap
 
 # Capture on ClientNIC eth1 (server-facing)
-sudo tcpdump -i eth1 -nn -tttt 'tcp port 8080' -w /tmp/server_side.pcap
+tcpdump -i eth1 -nn -tttt 'tcp port 8080' -w /tmp/server_side.pcap
 ```
 Compare SYN-ACK timestamps: spoofed (eth0) must precede real (eth1 inbound -> eth0 forwarded).
 
@@ -113,7 +126,7 @@ grep -E "delta|flow|SYN" /tmp/clientnic.log
 Always capture on both sides of each hop to isolate where packets are lost:
 ```bash
 # Live view (quick check)
-sudo tcpdump -i any -nn 'tcp port 8080' -c 20
+tcpdump -i any -nn 'tcp port 8080' -c 20
 ```
 
 ## Updating Code on VMs

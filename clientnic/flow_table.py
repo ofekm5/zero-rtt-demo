@@ -46,11 +46,15 @@ class FlowTable:
             return self._flows.get(key)
 
     def set_delta(self, key: FlowKey, real_server_isn: int) -> Optional[int]:
-        """Record real server ISN, compute seq_delta, return it. Returns None if flow not found."""
+        """Record real server ISN, compute seq_delta, return it. Returns None if flow not found.
+        Idempotent: if delta is already set (e.g. duplicate/retransmitted SYN-ACK), returns
+        the existing delta unchanged."""
         with self._lock:
             entry = self._flows.get(key)
             if entry is None:
                 return None
+            if entry.seq_delta is not None:
+                return entry.seq_delta
             entry.seq_delta = (entry.spoofed_server_isn - real_server_isn) & 0xFFFFFFFF
             entry.state = "ESTABLISHED"
             return entry.seq_delta

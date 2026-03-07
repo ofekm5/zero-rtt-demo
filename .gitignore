@@ -209,3 +209,4 @@ __marimo__/
 # CDK
 infra/cdk.out/
 infra/.venv/
+.claude/settings.local.json

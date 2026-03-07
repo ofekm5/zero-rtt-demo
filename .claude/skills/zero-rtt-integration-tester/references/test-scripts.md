@@ -1,6 +1,6 @@
 # Integration Test Scripts
 
-Located in `tests/integration/` in the repo root.
+Located in `integration-test/scripts/` in the repo root.
 
 ---
 
@@ -11,7 +11,7 @@ Full end-to-end orchestrator. Runs locally, drives all 4 VMs via AWS SSM.
 **Prerequisites**: `aws` CLI configured with SSM access, `python3` in PATH, `eu-central-1` region.
 
 ```bash
-./tests/integration/run_all.sh
+./integration-test/scripts/run_all.sh
 ```
 
 Exit code = number of failed checks (0 = all passed).
@@ -34,7 +34,8 @@ Exit code = number of failed checks (0 = all passed).
 
 ### Key implementation details
 
-- Uses `setsid ... < /dev/null > /tmp/*.log 2>&1 &` to daemonize — SSM requires full detachment
+- Uses `setsid ... < /dev/null >> /tmp/*.log 2>&1 &` to daemonize — SSM requires full detachment (append `>>` so logs survive restarts; prepend a `=== timestamp ===` separator line before each run)
+- Do NOT use `sudo` inside SSM `AWS-RunShellScript` — SSM already runs as root and `sudo` will hang waiting for a tty
 - `ssm_bg` fires a command and returns immediately (fire-and-forget)
 - `ssm_run` waits for completion via `aws ssm wait command-executed`
 - Git pull uses `sudo -u ec2-user git ...` to avoid SSM's missing `$HOME`
@@ -48,7 +49,7 @@ Validates 0-RTT behavior from pcap files captured on ClientNIC.
 Runs **on the ClientNIC VM** (where the pcap files reside).
 
 ```bash
-python3 tests/integration/analyze_capture.py \
+python3 integration-test/scripts/analyze_capture.py \
     --client-pcap /tmp/client_side.pcap \
     --server-pcap /tmp/server_side.pcap
 ```
