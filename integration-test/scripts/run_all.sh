@@ -155,10 +155,11 @@ sleep 3
 
 # ─── Step 1: Start Server ─────────────────────────────────────────────────────
 log "Step 1: Starting Server..."
-# Start server and verify in one SSM round-trip: daemon forks, we wait 2s, then check.
-LISTEN_CHECK=$(ssm_stdout "$SERVER_ID" \
-    "cd $REPO_PATH && echo '=== '\$(date -u +%Y-%m-%dT%H:%M:%SZ)' ===' >> /tmp/server.log && setsid python3 -u server-app/server.py --host 0.0.0.0 --port $SERVER_PORT --verbose < /dev/null >> /tmp/server.log 2>&1 & sleep 2 && ss -tlnp | grep $SERVER_PORT && echo LISTENING || echo NOT_LISTENING" \
-    30)
+# Start server daemon first, then verify listening in a separate SSM call.
+ssm_bg "$SERVER_ID" \
+    "cd $REPO_PATH && echo '=== '\$(date -u +%Y-%m-%dT%H:%M:%SZ)' ===' >> /tmp/server.log && setsid python3 -u server-app/server.py --host 0.0.0.0 --port $SERVER_PORT --verbose < /dev/null >> /tmp/server.log 2>&1 &"
+sleep 3
+LISTEN_CHECK=$(ssm_stdout "$SERVER_ID" "ss -tlnp | grep $SERVER_PORT && echo LISTENING || echo NOT_LISTENING" 30)
 if echo "$LISTEN_CHECK" | grep -q "LISTENING"; then
     pass "Server listening on :$SERVER_PORT"
 else
@@ -169,9 +170,10 @@ fi
 
 # ─── Step 2: Start ServerNIC ──────────────────────────────────────────────────
 log "Step 2: Starting ServerNIC..."
-# ip_forward is set persistently via sysctl.conf in CDK user data — no runtime action needed.
-# Routes are not needed: every send() call specifies iface= explicitly; Scapy falls back to
-# broadcast ARP which AWS VPC resolves transparently.
+# Scapy send() (L3) ignores iface= and uses kernel routing. Add OS routes so
+# packets to the client subnet (10.1.0.0/24) go out eth0 towards ClientNIC.
+ssm_bg "$SERVERNIC_ID" \
+    "ip route replace 10.1.0.0/24 via 10.1.1.1 dev eth0 2>/dev/null || true"
 ssm_bg "$SERVERNIC_ID" \
     "cd $REPO_PATH && echo '=== '$(date -u +%Y-%m-%dT%H:%M:%SZ)' ===' >> /tmp/servernic.log && setsid python3 -u -m servernic.main < /dev/null >> /tmp/servernic.log 2>&1 &"
 sleep 2
@@ -186,6 +188,12 @@ fi
 
 # ─── Step 3: Start ClientNIC + packet captures ────────────────────────────────
 log "Step 3: Starting ClientNIC + packet captures..."
+
+# Scapy send() (L3) ignores iface= and uses kernel routing. Add OS route so
+# packets to server subnet (10.1.2.0/24) go out eth1 towards ServerNIC.
+ssm_bg "$CLIENTNIC_ID" \
+    "ip route replace 10.1.2.0/24 via 10.1.1.1 dev eth1 2>/dev/null || true"
+sleep 1
 
 # Start captures BEFORE clientnic so we catch the very first SYN
 ssm_bg "$CLIENTNIC_ID" \
