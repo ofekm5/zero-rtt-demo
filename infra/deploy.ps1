@@ -11,8 +11,8 @@ $ScriptDir = $PSScriptRoot
 Push-Location $ScriptDir
 
 try {
-    # Create venv if it doesn't exist
-    $VenvDir = Join-Path $ScriptDir ".venv"
+    # Use the shared repo-root venv
+    $VenvDir = Join-Path $ScriptDir "..\venv"
     if (-not (Test-Path $VenvDir)) {
         Write-Host "[*] Creating virtual environment..."
         python -m venv $VenvDir

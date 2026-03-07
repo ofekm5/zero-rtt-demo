@@ -10,13 +10,25 @@ $ScriptDir = $PSScriptRoot
 Push-Location $ScriptDir
 
 try {
-    # Activate venv
-    $Activate = Join-Path $ScriptDir ".venv\Scripts\Activate.ps1"
-    if (-not (Test-Path $Activate)) {
-        Write-Host "[-] No virtual environment found. Run deploy.ps1 first to set it up."
-        exit 1
+    # Use the shared repo-root venv
+    $VenvDir = Join-Path $ScriptDir "..\venv"
+    if (-not (Test-Path $VenvDir)) {
+        Write-Host "[*] Creating virtual environment..."
+        python -m venv $VenvDir
+        if ($LASTEXITCODE -ne 0) { exit 1 }
     }
+
+    # Activate venv
+    $Activate = Join-Path $VenvDir "Scripts\Activate.ps1"
     . $Activate
+
+    # Install CDK dependencies if needed
+    python -c "import aws_cdk" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[*] Installing CDK dependencies..."
+        pip install -r requirements.txt
+        if ($LASTEXITCODE -ne 0) { exit 1 }
+    }
 
     # Safety prompt unless -Force is passed
     if (-not $Force) {
