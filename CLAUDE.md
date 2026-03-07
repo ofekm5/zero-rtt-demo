@@ -172,37 +172,56 @@ Remaining implementation order:
 ```
 client-app/
 ├── client.py           # Standard TCP client
+└── test_client.py      # Client unit tests
 
 clientnic/
 ├── main.py             # Entry point, sniffers on eth0/eth1
 ├── handlers.py         # SYN interception, 0-RTT logic
 ├── flow_table.py       # Connection state and seq delta tracking
 ├── rewriter.py         # Seq/ack modification, checksum recalc
-└── spoofer.py          # Spoofed SYN-ACK generation
+├── spoofer.py          # Spoofed SYN-ACK generation
+├── logger.py           # Packet logging
+├── test_flow_table.py  # Flow table unit tests
+├── test_handlers.py    # Handler unit tests
+├── test_spoofer.py     # Spoofer unit tests
+├── README.md
+└── docs/
+    └── clientNIC.md    # Detailed ClientNIC design doc
 
 servernic/
 ├── main.py             # Simple packet forwarder
-└── logger.py           # Optional packet logging
+├── forwarder.py        # Forwarding logic
+├── logger.py           # Packet logging
+├── test_forwarder.py   # Forwarder unit tests
+└── docs/
+    └── serverNIC.md    # Detailed ServerNIC design doc
 
 server-app/
-└── server.py           # Standard TCP server
+├── server.py           # Standard TCP server
+└── test_server.py      # Server unit tests
 
 infra/                  # AWS CDK infrastructure (deploy the 4-VM topology)
 ├── app.py              # CDK entry point
 ├── cdk.json            # CDK app config
 ├── cdk.context.json    # Cached AZ lookups (eu-central-1)
 ├── requirements.txt    # CDK Python dependencies
+├── deploy.ps1          # Deploy script (uses repo-root venv/)
+├── destroy.ps1         # Destroy script (uses repo-root venv/)
+├── ARCHITECTURE.md     # Infra architecture notes
 └── cdk/
     ├── packet_test_stack.py   # VPC with Client/Middle/Server subnets
     └── smartnics_stack.py     # EC2 instances, ENIs, route tables
+
+venv/                   # Shared Python venv for local dev (all components)
 ```
 
 ### Deploying Infrastructure
 
-```bash
+```powershell
 cd infra
-pip install -r requirements.txt
-cdk deploy --all
+.\deploy.ps1          # Creates/activates repo-root venv, installs deps, deploys
+.\deploy.ps1 -Bootstrap  # First-time CDK bootstrap + deploy
+.\destroy.ps1         # Tear down all stacks
 ```
 
 Retrieve the SSH private key after deploy:
