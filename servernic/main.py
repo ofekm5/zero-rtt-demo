@@ -25,7 +25,7 @@ def main():
     sniff(
         iface=[args.client_iface, args.server_iface],
         prn=forwarder.handle,
-        filter="tcp",
+        filter="tcp port 8080",
         store=False,
     )
 

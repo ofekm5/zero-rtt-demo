@@ -148,8 +148,8 @@ sleep 8   # give git pulls time to complete
 # ─── Cleanup any leftover processes ───────────────────────────────────────────
 log "Cleaning up previous runs..."
 ssm_bg "$SERVER_ID"    "pkill -f 'python3.*server.py' 2>/dev/null; rm -f /tmp/server.log"
-ssm_bg "$SERVERNIC_ID" "pkill -f 'python3.*servernic' 2>/dev/null; rm -f /tmp/servernic.log"
-ssm_bg "$CLIENTNIC_ID" "pkill -f 'python3.*clientnic' 2>/dev/null; pkill tcpdump 2>/dev/null; rm -f /tmp/clientnic.log /tmp/client_side.pcap /tmp/server_side.pcap"
+ssm_bg "$SERVERNIC_ID" "pkill -f 'python3.*servernic' 2>/dev/null; rm -f /tmp/servernic.log; iptables -F FORWARD 2>/dev/null"
+ssm_bg "$CLIENTNIC_ID" "pkill -f 'python3.*clientnic' 2>/dev/null; pkill tcpdump 2>/dev/null; rm -f /tmp/clientnic.log /tmp/client_side.pcap /tmp/server_side.pcap; iptables -F FORWARD 2>/dev/null"
 sleep 3
 
 
@@ -174,6 +174,9 @@ log "Step 2: Starting ServerNIC..."
 # packets to the client subnet (10.1.0.0/24) go out eth0 towards ClientNIC.
 ssm_bg "$SERVERNIC_ID" \
     "ip route replace 10.1.0.0/24 via 10.1.1.1 dev eth0 2>/dev/null || true"
+# Block kernel forwarding for port 8080 — only Scapy should handle these packets.
+ssm_bg "$SERVERNIC_ID" \
+    "iptables -F FORWARD 2>/dev/null; iptables -A FORWARD -p tcp --dport 8080 -j DROP; iptables -A FORWARD -p tcp --sport 8080 -j DROP"
 ssm_bg "$SERVERNIC_ID" \
     "cd $REPO_PATH && echo '=== '$(date -u +%Y-%m-%dT%H:%M:%SZ)' ===' >> /tmp/servernic.log && setsid python3 -u -m servernic.main < /dev/null >> /tmp/servernic.log 2>&1 &"
 sleep 2
@@ -193,6 +196,9 @@ log "Step 3: Starting ClientNIC + packet captures..."
 # packets to server subnet (10.1.2.0/24) go out eth1 towards ServerNIC.
 ssm_bg "$CLIENTNIC_ID" \
     "ip route replace 10.1.2.0/24 via 10.1.1.1 dev eth1 2>/dev/null || true"
+# Block kernel forwarding for port 8080 — only Scapy should handle these packets.
+ssm_bg "$CLIENTNIC_ID" \
+    "iptables -F FORWARD 2>/dev/null; iptables -A FORWARD -p tcp --dport 8080 -j DROP; iptables -A FORWARD -p tcp --sport 8080 -j DROP"
 sleep 1
 
 # Start captures BEFORE clientnic so we catch the very first SYN

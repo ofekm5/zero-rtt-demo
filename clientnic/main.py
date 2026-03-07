@@ -42,7 +42,7 @@ def main():
         kwargs=dict(
             iface="eth1",
             prn=server_handler.handle,
-            filter="tcp and not host 169.254.169.254",
+            filter="tcp port 8080",
             store=False,
         ),
         daemon=True,
